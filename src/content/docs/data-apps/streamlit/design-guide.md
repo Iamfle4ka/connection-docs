@@ -1,22 +1,22 @@
 ---
-title: Apps General Design Guide
-slug: 'data-apps/general-design-guide'
+title: Streamlit design guide
+slug: 'data-apps/streamlit/design-guide'
+description: Practical patterns for building a user-friendly Streamlit app in Keboola - theming, headers, body components, footers, and Storage communication.
 redirect_from:
   - /components/data-apps/general-design-guide/
 ---
 
 
 
-This guide will help you quickly create a user-friendly app in Keboola. We cover essentials like theming, headers, storage integration, 
-and more to streamline your setup. With clear, step-by-step instructions, you'll be able to build an intuitive, visually appealing app. 
+This guide will help you quickly create a user-friendly app in Keboola. We cover essentials like theming, headers, storage integration, and more to streamline your setup. With clear, step-by-step instructions, you'll be able to build an intuitive, visually appealing app.
 
 ## Theming
 There are two options for setting theming:
 
-1. **Keboola Apps Interface:** Choose from predefined or custom themes directly in the Keboola interface. See more in [the documentation](/data-apps/#theming).
-2. **Configuration File:** Use the settings in the `config.toml` file, located in the `.streamlit` folder.
+1. **Keboola Apps interface:** Choose from predefined or custom themes directly in the Keboola interface. See more in [the documentation](/data-apps/streamlit/#theming).
+2. **Configuration file:** Use the settings in the `config.toml` file, located in the `.streamlit` folder.
 
-![Screenshot - Streamlit Folder](/data-apps/general-design-guide/pic1.png)
+![Screenshot - Streamlit Folder](/data-apps/streamlit/design-guide-folder.png)
 
 ```
 [theme]
@@ -53,7 +53,7 @@ st.markdown(hide_img_fs, unsafe_allow_html=True)
 
 ## Body
 
-### Set Up Caches
+### Set up caches
 
 Set the `ttl` parameter based on your app's needs.
 
@@ -62,7 +62,7 @@ Set the `ttl` parameter based on your app's needs.
 @st.cache_data(ttl=7200,show_spinner=False)
 ```
 
-### Info Panel
+### Info panel
 
 :::note
 **Tip:** Select the table you want to edit. If the data is not up to date, click the **Reload Data** button. The data freshness is displayed in the right corner.
@@ -74,7 +74,7 @@ Use `st.info` to provide helpful context or instructions to users.
 st.info('Select the table you want to edit. If the data is not up to date, click the Reload Data button. The data freshness is displayed in the right corner.', icon="ℹ️")
 ```
 
-### Hide Anchor Links
+### Hide anchor links
 
 To hide anchor links, add this function.
 
@@ -106,10 +106,10 @@ with st.expander("Table Info"):
     # Code continues …
 ```
 
-### Primary Buttons
+### Primary buttons
 Use the following code for primary buttons; secondary buttons can be simple `st.buttons`.
 
-![Screenshot - Save Data](/data-apps/general-design-guide/pic3.png)
+![Screenshot - Save Data](/data-apps/streamlit/design-guide-save-button.png)
 
 ```
 
@@ -138,7 +138,7 @@ ChangeButtonColour('Save Data', '#FFFFFF', '#1EC71E','#1EC71E')
 ## Footer
 Here is an example of what a footer could look like.
 
-![Screenshot - Footer](/data-apps/general-design-guide/pic4.png)
+![Screenshot - Footer](/data-apps/streamlit/design-guide-footer.png)
 
 Customize the footer with the code below.
 
@@ -168,7 +168,7 @@ def display_footer_section():
         """, unsafe_allow_html=True)
 ```
 
-## Keboola Storage Communication
+## Keboola Storage communication
 
 Keboola offers multiple methods to interact with Storage. For simpler data access, consider using the "keboola-streamlit" package. Install it with:
 
@@ -195,7 +195,7 @@ And retrieve data with:
 
 For more details, visit the official KeboolaStreamlit repository on GitHub: [keboola/keboola_streamlit](https://github.com/keboola/keboola_streamlit).
 
-### Authenticate Client
+### Authenticate client
 
 Environment variables `kbc_token` and `kbc_url` represent the project where the application is deployed. You do not need to specify them.
 To map data from a different project, configure the appropriate secrets.
@@ -208,7 +208,7 @@ kbc_url = os.environ.get('KBC_URL')
 client = Client(kbc_url, kbc_token)
 ```
 
-### Retrieve Data from Keboola
+### Retrieve data from Keboola
 ```
 def get_dataframe(table_name):
     table_detail = client.tables.detail(table_name)
@@ -236,7 +236,7 @@ if 'data' not in st.session_state:
 st.session_state['data'] = get_dataframe('in.c-bucketName.tableName')
 ```
 
-### Write Data to Keboola
+### Write data to Keboola
 ```
 def write_to_keboola(data, table_name, table_path, incremental):
     # Write the DataFrame to a CSV file with compression

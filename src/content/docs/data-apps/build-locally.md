@@ -1,23 +1,71 @@
 ---
-title: Storage Access
-slug: 'data-apps/storage-access'
+title: Build locally
+slug: 'data-apps/build-locally'
+description: Connect a Python/JS app to Keboola data - Input Mapping, the Storage API, and real-time read/write with Storage Access.
 ---
 
 
 
-Storage Access allows your Data App to read data from and write data back to Keboola Storage tables in real-time. Your app connects directly to Keboola's storage through Query Service via SQL, enabling:
+You can develop and test a Python/JS app on your own machine and then deploy it to Keboola. This guide covers how to connect your app to Keboola data: loading tables via Input Mapping, fetching data at runtime through the Storage API, and reading and writing in real time with Storage Access. For the build flow itself (repository structure, configuration files, deployment), see [build with Kai](/data-apps/build-with-kai/).
+
+## Working with Keboola data
+
+### Reading data loaded via Input Mapping
+
+If you configured **Input Mapping** in your app settings, Keboola loads selected tables from Storage into the container before your app starts. Your app can then read them as CSV files:
+
+```python
+import pandas as pd
+
+# File path follows this pattern: /data/in/tables/<table-name>.csv
+df = pd.read_csv("/data/in/tables/my_table.csv")
+print(df.head())
+```
+
+**Note:** Input Mapping data is loaded once when the app starts. To get fresh data, you need to redeploy the app or use the Storage API to fetch data at runtime.
+
+### Reading data at runtime using the Storage API
+
+For apps that need to fetch up-to-date data without redeploying, use the Keboola Storage API. Store your Storage token as a secret (see [secrets and environment variables](/data-apps/reference/#secrets-and-environment-variables)) and load data programmatically:
+
+```python
+import requests
+import pandas as pd
+from io import StringIO
+import os
+
+KBC_URL = os.environ.get("KBC_URL")          # e.g. https://connection.keboola.com
+KBC_TOKEN = os.environ.get("KBC_TOKEN")       # your Storage API token
+
+def load_table(table_id: str) -> pd.DataFrame:
+    """Load a table from Keboola Storage into a pandas DataFrame."""
+    url = f"{KBC_URL}/v2/storage/tables/{table_id}/export-async"
+    headers = {"X-StorageApi-Token": KBC_TOKEN}
+    response = requests.post(url, headers=headers)
+    response.raise_for_status()
+    # Follow the async export job...
+    return pd.read_csv(StringIO(response.text))
+```
+
+For a complete example using the official Python client library, see the [Keboola Storage Python Client documentation](https://developers.keboola.com/integrate/storage/python-client/).
+
+## Storage Access
+
+Storage Access allows your app to read data from and write data back to Keboola Storage tables in real-time. Your app connects directly to Keboola's storage through Query Service via SQL, enabling:
 
 - **Real-time data access**: Always work with the latest data, no redeployment needed
 - **Write-back capability**: Update, insert into **existing** Storage tables directly from your app
 - **Interactive applications**: Build data entry forms, approval workflows, and collaborative tools
 
-This feature is available for both **Streamlit** and **Python/JS** Data Apps. Code examples on this page use Python; the same concepts apply when calling the Query Service API from JavaScript.
+This feature is available for both **Streamlit** and **Python/JS** apps. Code examples on this page use Python; the same concepts apply when calling the Query Service API from JavaScript.
 
 :::caution
 **Snowflake only.** Storage Access currently works only on projects using the Snowflake storage backend. BigQuery support is coming soon.
 :::
 
-## When to Use Storage Access
+For how Storage Access works internally (the workspace architecture and lifecycle), the environment variables it sets, how it compares to Input Mapping, and its limitations, see the [reference](/data-apps/reference/#storage-access-reference).
+
+### When to use Storage Access
 
 **Use Storage Access when you need to:**
 
@@ -31,60 +79,17 @@ This feature is available for both **Streamlit** and **Python/JS** Data Apps. Co
 - Your dataset is small and changes infrequently (e.g., static reference data loaded at deploy time).
 - You want the simplest possible setup with no additional configuration.
 
-## How It Works
+### Setting up Storage Access
 
-### Architecture Overview
-
-When you enable Storage Access, Keboola creates a dedicated **workspace** for your Data App. This workspace contains a database user with specific permissions (SELECT, INSERT, UPDATE, DELETE, TRUNCATE) on the tables you've selected.
-
-```
-Your Data App
-     │
-     ▼
-Query Service ────► Workspace User ────► Storage Tables
-     │                                        │
-     │                                        │
-     └── Handles authentication,              └── Your selected tables
-         billing, metadata refresh                 with granted permissions
-```
-
-Your app communicates with Storage through the [**Query Service API**](https://api.keboola.com/?service=query), not directly with Snowflake. This provides:
-
-- Automatic authentication using your app's token
-- Usage tracking for billing
-- Automatic metadata refresh after writes
-- Abstraction from the underlying backend
-
-The recommended Python client library is [keboola-query-service](https://pypi.org/project/keboola-query-service/) (also available for JavaScript/TypeScript as [@keboola/query-service](https://www.npmjs.com/package/@keboola/query-service)).
-
-### Workspace Lifecycle
-
-The workspace is **ephemeral** - a fresh workspace is created each time your app starts (including wake-up from sleep):
-
-| Event | Workspace Action |
-| --- | --- |
-| App deploys | New workspace created |
-| App wakes from sleep | New workspace created (old one deleted) |
-| App redeployed | New workspace created (old one deleted) |
-| App deleted | Workspace deleted |
-
-This design ensures:
-
-- Permission changes take effect on next app start
-- No stale credentials or connections
-- Clean isolation between app runs
-
-## Setting Up Storage Access
-
-### Step 1: Enable Storage Access
+#### Step 1: Enable Storage Access
 
 1. Go to the **Project Settings**.
 2. Go to the **Features**.
 3. Find the **Storage Access** feature and activate it.
 
-### Step 2: Configure Writable Tables
+#### Step 2: Configure writable tables
 
-1. Open your Data App configuration in Keboola.
+1. Open your app configuration in Keboola.
 2. Go to the **Advanced Settings** tab.
 3. Find the **Storage Access** section.
 4. Click **+ Add Writable Table**.
@@ -96,9 +101,9 @@ This design ensures:
 - You can add multiple tables from different buckets.
 - All selected tables must exist before deploying.
 
-#### Configuring Writable Tables Programmatically
+##### Configuring writable tables programmatically
 
-If you manage Data App configurations through the Storage API (or via automation/agents) rather than the UI, the same writable-table selection is expressed in the configuration JSON under `storage.output.tables`. Each entry is a table the app gets read/write permissions on:
+If you manage app configurations through the Storage API (or via automation/agents) rather than the UI, the same writable-table selection is expressed in the configuration JSON under `storage.output.tables`. Each entry is a table the app gets read/write permissions on:
 
 ```json
 {
@@ -118,9 +123,9 @@ If you manage Data App configurations through the Storage API (or via automation
 - **`destination`** — the full Storage table ID (`<stage>.<bucket>.<table>`) the app should be able to read and write. The table must exist before the app is deployed.
 - **`unload_strategy: "direct-grant"`** — required marker that tells the platform "grant the app's workspace direct SELECT/INSERT/UPDATE/DELETE/TRUNCATE on this table." Tables without this strategy in `storage.output.tables` are not exposed via Storage Access.
 
-To add or remove writable tables programmatically, update the Data App's configuration via the Storage API ([Component Configurations endpoint](https://api.keboola.com/?service=storage#tag--Component-Configurations)) and redeploy the app for the new permissions to take effect.
+To add or remove writable tables programmatically, update the app's configuration via the Storage API ([Component Configurations endpoint](https://api.keboola.com/?service=storage#tag--Component-Configurations)) and redeploy the app for the new permissions to take effect.
 
-### Step 3: Deploy Your App
+#### Step 3: Deploy your app
 
 Click **Deploy** (or **Redeploy** for existing apps). During deployment:
 
@@ -128,9 +133,9 @@ Click **Deploy** (or **Redeploy** for existing apps). During deployment:
 2. The workspace ID is passed to your app as an environment variable.
 3. Your app code can now use the Query Service to read and write data.
 
-## Reading Data from Storage
+### Reading data from Storage
 
-### Using the Query Service Client
+#### Using the Query Service client
 
 Install the Keboola Query Service client:
 
@@ -170,7 +175,7 @@ client = Client(
 )
 ```
 
-### Reading Selected Tables
+#### Reading selected tables
 
 To read a table you've selected in the UI:
 
@@ -197,7 +202,7 @@ print(df.head())
 - Use the full table ID in quotes: `"bucket_stage.bucket_name"."table_name"`
 - Example: `"in.c-sales"."orders"` for a table `orders` in bucket `in.c-sales`
 
-### Running Custom Queries
+#### Running custom queries
 
 You can run any SELECT query against your permitted tables:
 
@@ -222,7 +227,7 @@ results = client.execute_query(
 result = results[0]
 ```
 
-## Writing Data Back to Storage
+### Writing data back to Storage
 
 Storage Access allows your app to modify data in Storage tables using standard SQL statements via the Query Service. This is useful for:
 
@@ -235,7 +240,7 @@ Storage Access allows your app to modify data in Storage tables using standard S
 The Query Service accepts raw SQL and does not support parameterized queries or server-side bind variables. Your application is responsible for validating every untrusted value before interpolating it into a statement. See the [Validate and sanitize user input](#best-practices) guidance for patterns.
 :::
 
-### Inserting and Updating Data
+#### Inserting and updating data
 
 You can use standard SQL INSERT and UPDATE statements directly via the Query Service. Pass `statements` as a list — the SDK will execute them (transactionally by default) and return one result per statement:
 
@@ -274,7 +279,7 @@ client.execute_query(
 
 The Query Service automatically handles metadata refresh in Storage after write operations, so row counts and table statistics stay current without any additional calls.
 
-### Truncating Tables
+#### Truncating tables
 
 To remove all data from a table:
 
@@ -290,7 +295,7 @@ client.execute_query(
 Truncation removes every row in the target table immediately and cannot be undone through the Query Service. Use with caution.
 :::
 
-### Important Considerations
+#### Important considerations
 
 **Metadata refresh:** After any write operation, Keboola automatically refreshes the table metadata. This ensures:
 
@@ -317,51 +322,7 @@ if results[0].rows_affected == 0:
     raise Exception("Record was modified by another user. Please refresh and try again.")
 ```
 
-## Environment Variables
-
-When Storage Access is enabled, the platform sets these environment variables in your Data App container:
-
-| Variable | Description |
-| --- | --- |
-| `KBC_WORKSPACE_MANIFEST_PATH` | Path to the workspace manifest JSON file. The file contains `workspaceId` (and other workspace metadata). **Recommended source for the workspace ID.** |
-| `WORKSPACE_ID` | ID of the provisioned workspace for this app. Also available in the manifest file (above) — prefer reading the manifest in new code. |
-| `BRANCH_ID` | Storage API branch ID of the project. |
-| `QUERY_SERVICE_URL` | URL of the Query Service API (stack-specific). |
-| `KBC_TOKEN` | Keboola Storage API token. |
-
-If Storage Access is not enabled, `KBC_WORKSPACE_MANIFEST_PATH` / `WORKSPACE_ID` / `BRANCH_ID` / `QUERY_SERVICE_URL` are not set. Read them with a clear error message for users:
-
-```python
-import json
-import os
-
-try:
-    branch_id = os.environ["BRANCH_ID"]
-    query_service_url = os.environ["QUERY_SERVICE_URL"]
-    with open(os.environ["KBC_WORKSPACE_MANIFEST_PATH"]) as f:
-        workspace_id = json.load(f)["workspaceId"]
-except (KeyError, FileNotFoundError) as e:
-    raise RuntimeError(
-        "Storage Access is not enabled. Enable it in Advanced Settings and redeploy."
-    ) from e
-```
-
-For the full list of environment variables exposed to Data Apps, see the [data-app-python-js runtime README](https://github.com/keboola/data-app-python-js/blob/main/README.md#environment-variables).
-
-## Comparison: Input Mapping vs Direct Storage Access
-
-| Aspect | Input Mapping | Direct Storage Access |
-| --- | --- | --- |
-| **Data freshness** | Snapshot at deploy time | Real-time, always current |
-| **Data loading** | CSV files loaded to `/data/in/tables/` | Query on demand via API |
-| **Write capability** | None (read-only) | INSERT, UPDATE, DELETE, TRUNCATE |
-| **Dataset size** | Limited by container memory | Virtually unlimited (pagination) |
-| **Configuration** | Select tables in UI | Select tables + enable toggle |
-| **Use case** | Static dashboards, reports | Interactive apps, data entry |
-
-**You can use both together:** Input Mapping for reference data that rarely changes, Storage Access for data you need to read/write in real-time.
-
-## Example: Read-Write Data App
+### Example: read-write app
 
 This example shows a simple Flask app that reads records from Storage and allows users to update their status.
 
@@ -477,7 +438,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 ```
 
-## Best Practices
+### Best practices
 
 **1. Handle missing workspace gracefully**
 
@@ -583,18 +544,12 @@ def get_cached_data(key, query_fn):
 
 **5. Track write operations**
 
-Write operations are automatically tracked by the Query Service for billing purposes. For additional application-level auditing, log to stdout (visible in Data App container logs):
+Write operations are automatically tracked by the Query Service for billing purposes. For additional application-level auditing, log to stdout (visible in app container logs):
 
 ```python
 import logging
 logging.basicConfig(level=logging.INFO)
 
 logging.info(f"User {current_user} updated record {record_id} to status {new_status}")
-# Output goes to stdout → visible in the Terminal Log tab of your Data App
+# Output goes to stdout → visible in the Terminal Log tab of your app
 ```
-
-## Limitations
-
-- **Snowflake only**: Storage Access currently works only with Snowflake backends. BigQuery support is planned for a future release.
-- **Column-level permissions not supported**: If you grant access to a table, the app can read/write all columns.
-- **Permission changes require app restart**: If you add or remove tables from the Storage Access configuration, the changes take effect on the next app start (deploy, redeploy, or wake from sleep).

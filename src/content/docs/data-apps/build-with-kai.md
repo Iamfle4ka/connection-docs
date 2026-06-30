@@ -1,41 +1,24 @@
 ---
-title: Python/JS Apps
-slug: 'data-apps/python-js'
+title: Build with Kai
+slug: 'data-apps/build-with-kai'
+description: Build a Python/JS app with the help of an AI assistant - from an empty GitHub repository to a deployed, secure URL.
 ---
 
 
 
-Python/JavaScript Apps give you full control over what you build and how you build it. Unlike Streamlit Apps - which use a ready-made Python environment - Python/JS Apps let you use **any Python web framework** (Flask, FastAPI, Dash), serve a **JavaScript frontend**, or combine both. You bring the code; Keboola handles the hosting, access control, and data connectivity.
+This guide walks you through building a Python/JS app with the help of an AI assistant. Every step is explained in plain language - no deep technical knowledge required. You bring the code; Keboola handles the hosting, access control, and data connectivity. For how Python/JS apps run under the hood, see [what are apps?](/data-apps/what-are-apps/#how-pythonjs-apps-work).
 
-This guide assumes you are building with the help of an AI assistant. Every step is explained in plain language - no deep technical knowledge required.
-
-## How It Works
-
-When you deploy a Python/JS App, Keboola:
-
-1. Clones your GitHub repository into the app container.
-2. Runs your `setup.sh` script to install dependencies.
-3. Starts your application using the process configuration you provide.
-4. Routes all traffic through an internal web server (Nginx) that listens on port 8888.
-5. Makes your app available at a secure URL.
-
-You do not manage servers, ports, or Docker. You only manage your code and a small configuration folder called `keboola-config`.
-
-```
-Your browser -> Keboola -> Nginx (port 8888) -> Your app (internal port, e.g. 5000)
-```
-
-## What You Need Before Starting
+## What you need before starting
 
 * A **GitHub account** (free). Your app code lives here.
 * A **Keboola project** with Apps available.
 * Basic comfort with creating files and folders - an AI assistant can generate all the code for you.
 
-You do **not** need to install Python, Node.js, or any development tools on your computer. Everything runs inside Keboola's infrastructure.
+You do **not** need to install Python, Node.js, or any development tools on your computer. Everything runs inside Keboola's infrastructure. (To develop and test on your own machine instead, see [build locally](/data-apps/build-locally/).)
 
-## Repository Structure - The Golden Rule
+## Repository structure - the golden rule
 
-Every Python/JS App repository **must** follow this structure. Missing any piece will cause the deployment to fail.
+Every Python/JS app repository **must** follow this structure. Missing any piece will cause the deployment to fail.
 
 ```
 your-repo/
@@ -55,7 +38,7 @@ your-repo/
 **Important:** The `keboola-config` folder name and the subfolder paths inside it are exact - do not rename them or change the folder hierarchy.
 :::
 
-## Step 1 - Create Your GitHub Repository
+## Step 1 - Create your GitHub repository
 
 1. Go to [github.com](https://github.com/) and sign in.
 2. Click **New repository**.
@@ -65,7 +48,7 @@ your-repo/
 
 You now have an empty repository. Next, you will add your app code and configuration files.
 
-## Step 2 - Write Your Application Code
+## Step 2 - Write your application code
 
 Your app can be written in Python or JavaScript (Node.js). The only firm rules are:
 
@@ -107,9 +90,9 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 ```
 
-**Common mistake:** If your root route only handles GET (`@app.route(\"/\")` in Flask or `app.get('/')` in Express), Keboola's startup check will receive a \"Method Not Allowed\" error and your app will appear broken even though it works locally. Always allow POST on `/`.
+**Common mistake:** If your root route only handles GET (`@app.route("/")` in Flask or `app.get('/')` in Express), Keboola's startup check will receive a "Method Not Allowed" error and your app will appear broken even though it works locally. Always allow POST on `/`.
 
-## Step 3 - Create the `keboola-config` Folder
+## Step 3 - Create the `keboola-config` folder
 
 This folder is the bridge between your code and Keboola's infrastructure. You need three files inside it.
 
@@ -192,7 +175,7 @@ stderr_logfile_maxbytes=0
 Rules to follow:
 
 * Always use **absolute paths** starting with `/app/` (e.g., `/app/app.py`, not `./app.py`).
-* For Python commands, always prefix with `uv run` (see [Key Terms Explained](#key-terms-explained) for why).
+* For Python commands, always prefix with `uv run` (see [key terms](/data-apps/reference/#key-terms) for why).
 * Do **not** add a `[program:nginx]` section - Nginx is managed by Keboola automatically.
 
 **What is Supervisord?** Supervisord is a process manager - software that starts your application and automatically restarts it if it crashes. Think of it as a watchdog for your app.
@@ -229,7 +212,7 @@ wait
 
 **Note:** Keboola automatically makes `setup.sh` executable before running it. If you are testing locally outside of Keboola, you may need to run `chmod +x keboola-config/setup.sh` yourself.
 
-## Step 4 - Define Your Dependencies
+## Step 4 - Define your dependencies
 
 ### Python: `pyproject.toml`
 
@@ -272,7 +255,7 @@ For Node.js apps, dependencies are defined in `package.json` as usual. The `setu
 }
 ```
 
-## Step 5 - Configure and Deploy in Keboola
+## Step 5 - Configure and deploy in Keboola
 
 1. In your Keboola project, go to **Apps** and click **Create App**.
 2. Choose **Python/JS** as the type.
@@ -281,93 +264,16 @@ For Node.js apps, dependencies are defined in `package.json` as usual. The `setu
 5. If your repository is private, enable **Private repository** and authenticate using either:
    - **Personal Access Token**: Enter your GitHub username and a [Personal Access Token](https://github.com/settings/tokens), or
    - **SSH Private Key**: Paste your SSH private key for key-based authentication.
-6. Add any [secrets](#secrets-and-environment-variables) your app needs.
+6. Add any [secrets](/data-apps/reference/#secrets-and-environment-variables) your app needs.
 7. Click **Deploy**.
 
 Keboola will clone your repository, run `setup.sh`, and start your app. The first deployment may take a few minutes. Once complete, a URL will appear - click it to open your app.
 
 **To update your app:** Push changes to your GitHub repository, then click **Redeploy** in the Keboola app configuration. Keboola will pull the latest code and restart the app.
 
-## Working with Keboola Data
+## Example: Hello World app
 
-### Reading data loaded via Input Mapping
-
-If you configured **Input Mapping** in your app settings, Keboola loads selected tables from Storage into the container before your app starts. Your app can then read them as CSV files:
-
-```python
-import pandas as pd
-
-# File path follows this pattern: /data/in/tables/<table-name>.csv
-df = pd.read_csv("/data/in/tables/my_table.csv")
-print(df.head())
-```
-
-**Note:** Input Mapping data is loaded once when the app starts. To get fresh data, you need to redeploy the app or use the Storage API to fetch data at runtime.
-
-### Reading data at runtime using the Storage API
-
-For apps that need to fetch up-to-date data without redeploying, use the Keboola Storage API. Store your Storage token as a secret (see next section) and load data programmatically:
-
-```python
-import requests
-import pandas as pd
-from io import StringIO
-import os
-
-KBC_URL = os.environ.get("KBC_URL")          # e.g. https://connection.keboola.com
-KBC_TOKEN = os.environ.get("KBC_TOKEN")       # your Storage API token
-
-def load_table(table_id: str) -> pd.DataFrame:
-    """Load a table from Keboola Storage into a pandas DataFrame."""
-    url = f"{KBC_URL}/v2/storage/tables/{table_id}/export-async"
-    headers = {"X-StorageApi-Token": KBC_TOKEN}
-    response = requests.post(url, headers=headers)
-    response.raise_for_status()
-    # Follow the async export job...
-    return pd.read_csv(StringIO(response.text))
-```
-
-For a complete example using the official Python client library, see the [Keboola Storage Python Client documentation](https://developers.keboola.com/integrate/storage/python-client/).
-
-## Secrets and Environment Variables
-
-Sensitive values - API keys, tokens, passwords - should never be written directly into your code. Store them as **secrets** in the app configuration instead.
-
-### Adding a secret in Keboola
-
-In your app configuration, go to the **Secrets** section and add key-value pairs:
-
-| Key | Value |
-|---|---|
-| `#KBC_TOKEN` | `your-storage-api-token` |
-| `#ANTHROPIC_API_KEY` | `your-api-key` |
-| `#DB_PASSWORD` | `your-database-password` |
-
-The `#` prefix marks the value as a secret (encrypted at rest).
-
-### Accessing secrets in your code
-
-Keboola automatically makes secrets available as environment variables when your app starts. The `#` prefix is stripped, and the name is uppercased:
-
-```python
-# Python
-import os
-
-kbc_token = os.environ.get("KBC_TOKEN")
-api_key = os.environ.get("ANTHROPIC_API_KEY")
-```
-
-```javascript
-// Node.js
-const kbcToken = process.env.KBC_TOKEN;
-const apiKey = process.env.ANTHROPIC_API_KEY;
-```
-
-**How the name is transformed:** `#my-custom-var` becomes `MY_CUSTOM_VAR`. Dashes become underscores, the value is uppercased, and the `#` is removed.
-
-## Example: Hello World App
-
-This is the simplest possible Python/JS App. It displays \"Hello from Keboola!\" in a browser.
+This is the simplest possible Python/JS app. It displays "Hello from Keboola!" in a browser.
 
 You can clone the complete example from **[keboola/example-python-js-hello-world](https://github.com/keboola/example-python-js-hello-world)** and deploy it directly.
 
@@ -465,54 +371,8 @@ set -Eeuo pipefail
 cd /app && uv sync
 ```
 
-## Troubleshooting
+## Next steps
 
-### App shows "Method Not Allowed" or a blank page on first open
-
-Your root route (`/`) likely only accepts GET requests. Keboola sends a POST request to `/` to verify the app is running. Add `methods=["GET", "POST"]` in Flask, or use `app.all('/')` in Express.
-
-### App fails to start / keeps restarting
-
-Check the **Terminal Log** tab in your app configuration in Keboola - it shows stdout and stderr output from your app. Common causes:
-
-* A path in `app.conf` is relative (`app.py`) instead of absolute (`/app/app.py`).
-* A Python command in `app.conf` is missing the `uv run` prefix.
-* A package listed in `pyproject.toml` has a typo or does not exist.
-
-### "externally-managed-environment" error
-
-You have `pip install` somewhere in `setup.sh` or your code. Replace it with `uv sync` in `setup.sh` and make sure all dependencies are listed in `pyproject.toml`.
-
-### App works locally but not in Keboola
-
-* **Port mismatch:** The port in `default.conf` (the `proxy_pass` line) must match the port your app listens on.
-* **Missing secrets:** A required environment variable is not defined in the Secrets section.
-* **Missing `uv run`:** Python commands in `app.conf` must be prefixed with `uv run`.
-
-### Environment variable is undefined
-
-Add it as a secret in the Keboola app configuration (see [Secrets and Environment Variables](#secrets-and-environment-variables)). Secrets are available to both `setup.sh` and your running app.
-
-### Streaming responses arrive all at once instead of in real time
-
-Add `proxy_buffering off;` to the relevant `location` block in `default.conf`. By default, Nginx collects the full response before forwarding it - this breaks Server-Sent Events and other streaming patterns.
-
-## Key Terms Explained
-
-**uv** - A fast Python package manager. Keboola uses it to install your Python dependencies from `pyproject.toml`. You interact with it via `uv sync` (in `setup.sh`) and `uv run` (in your Supervisord config). Think of it as a modern replacement for `pip`.
-
-**pip** - The traditional Python package installer (e.g., `pip install flask`). Keboola's Python/JS image blocks direct `pip` usage to keep the environment stable - use `uv sync` instead.
-
-**pyproject.toml** - A configuration file that defines your Python project: its name, required Python version, and list of dependencies. It is the modern standard for Python projects and is required by `uv`.
-
-**Nginx** - A web server that handles incoming internet traffic and forwards it to your application. You configure it with `default.conf`. The most important setting is the `proxy_pass` port, which must match your app's port.
-
-**Supervisord** - A process manager that starts and monitors your application. You configure it with `app.conf`. If your app crashes, Supervisord automatically restarts it.
-
-**Port** - A number that identifies a specific communication channel on a computer. Your app listens on an internal port (e.g., 5000), while Nginx listens on port 8888 (the public-facing port required by Keboola). You never need to change 8888; only change your app's internal port.
-
-**Environment variable** - A named value available to a running program, set outside the code itself. In Keboola, secrets become environment variables accessible via `os.environ.get("MY_KEY")` in Python or `process.env.MY_KEY` in Node.js.
-
-**Input Mapping** - A Keboola feature that copies selected Storage tables into your app container as CSV files before the app starts. Useful for apps that need a snapshot of your data at startup.
-
-**Container** - A lightweight, isolated computing environment in which your app runs. Keboola manages the container; you only manage the code inside it.
+- Connect your app to Keboola data: [build locally](/data-apps/build-locally/) covers Input Mapping, the Storage API, and Storage Access.
+- Store API keys and tokens safely: see [secrets and environment variables](/data-apps/reference/#secrets-and-environment-variables).
+- If your app fails to start, see [troubleshooting](/data-apps/reference/#troubleshooting).
